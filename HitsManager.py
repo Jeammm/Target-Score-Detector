@@ -23,6 +23,7 @@ class Hit:
         self.score = score
         self.reputation = 1
         self.bullseye_relation = bullseyeRelation
+        self.id = len(verified_hits) + 1
         
         # has this hit been checked during current iteration
         self.iter_mark = False
@@ -218,6 +219,7 @@ def eliminate_verified_redundancy(distanceTolerance):
                 if bullseye_dist_i < bullseye_dist_j:
                     verified_hits.remove(verified_hits[col])
                 else:
+                    verified_hits[col].id = verified_hits[i].id
                     verified_hits.remove(verified_hits[i])
         
         j_leap += 1

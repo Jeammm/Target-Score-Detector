@@ -92,9 +92,9 @@ class VideoAnalyzer:
         '''
 
         # set default analysis meta-data
-        scoreboard = []
-        scores = []
-        self.bullseye_point = None
+        # scoreboard = []
+        # scores = []
+        # self.bullseye_point = None
         
         # while (not self.warped_img or not self.bullseye_point or not self.warped_vertices or not self.scale):
         
@@ -160,7 +160,7 @@ class VideoAnalyzer:
                 # reference hit groups
                 candidate_hits = hitsMngr.get_hits(hitsMngr.CANDIDATE)
                 verified_hits = hitsMngr.get_hits(hitsMngr.VERIFIED)
-                    
+
                 # extract grouping data
                 grouping_contour = grouper.create_group_polygon(frame, verified_hits)
                 has_group = type(grouping_contour) != type(None)
@@ -182,6 +182,7 @@ class VideoAnalyzer:
                 
                 sketcher.mark_hits(frame, verified_hits, foreground=(0x0,0xff,0x0),
                                    diam=5, withOutline=True, withScore=True)
+                sketcher.shot_label_table(frame, verified_hits)
                 
                 # display
                 frame_resized = cv2.resize(frame, (1153, 648))

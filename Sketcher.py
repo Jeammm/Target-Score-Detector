@@ -43,6 +43,13 @@ class Sketcher:
         rect_5_start = (rect_4_start[0] - 20, int(img_h * .85))
         rect_5_end = (rect_4_start[0] - 15, img_h)
         cv2.rectangle(img, rect_5_start, rect_5_end, (0x0,204,0xff), -1)
+        
+        cv2.putText(img, "Shot", (40, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0x0,0x0,0x0), thickness=15)
+        cv2.putText(img, "Shot", (40, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0xff,0xff,0xff), thickness=5)
+
+        cv2.putText(img, "Score", (200, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0x0,0x0,0x0), thickness=15)
+        cv2.putText(img, "Score", (200, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0xff,0xff,0xff), thickness=5)
+
 
     def mark_hits(self, img, hits, foreground, diam, withOutline, withScore):
         '''
@@ -148,3 +155,15 @@ class Sketcher:
         
         cv2.putText(img, '/ ' + achievableScore, (int(img_w * .695 + score_space), int(img_h * .975)),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0x0,0x0,0x0), 4)
+        
+    def shot_label_table(self, img, verified_hits):        
+        for hit in verified_hits:
+            score_string = str(hit.score) if (hit.score > 0) else 'miss'
+            
+            text_y = 50 + 80 * hit.id
+            
+            cv2.putText(img, str(hit.id), (70, text_y), cv2.FONT_HERSHEY_PLAIN, 3, (0x0,0x0,0x0), thickness=15)
+            cv2.putText(img, str(hit.id), (70, text_y), cv2.FONT_HERSHEY_PLAIN, 3, (0xff,0xff,0xff), thickness=5)
+
+            cv2.putText(img, score_string, (230, text_y), cv2.FONT_HERSHEY_PLAIN, 3, (0x0,0x0,0x0), thickness=15)
+            cv2.putText(img, score_string, (230, text_y), cv2.FONT_HERSHEY_PLAIN, 3, (0xff,0xff,0xff), thickness=5)
