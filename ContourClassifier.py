@@ -28,12 +28,12 @@ def contour_distances_from(contour, point):
     '''
 
     pts = [[p[0], p[1], 0] for p in contour]
-    
-    for i in range(len(pts)):
-        p = pts[i]
+
+    for pt in pts:
+        p = pt
         xy = (p[0],p[1])
         p[2] = geo2D.euclidean_dist(xy, point)
-    
+
     return sorted(pts, key=lambda x: x[2])
 
 def extend_contour_line(img, contour, bullseye, length):
@@ -63,7 +63,7 @@ def extend_contour_line(img, contour, bullseye, length):
     # find a rectangle that strictly bounds the contour
     bounding_rect = cv2.minAreaRect(contour)
     box = cv2.boxPoints(bounding_rect)
-    box = np.int0(box)
+    box = np.int32(box)
     A = box[0]
     B = box[1]
     C = box[2]

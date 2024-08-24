@@ -4,7 +4,7 @@ import cv2
 
 # input
 model = cv2.imread('res/input/target.jpg')
-video_name = 'res/input/video.mp4'
+video_name = 'res/input/video`.mp4'
 bullseye_point = (325,309)
 inner_diameter_px = 50
 inner_diameter_inch = 1.5
