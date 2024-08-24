@@ -27,11 +27,9 @@ def subtract_background(query, subtrahend):
     # apply a black area on the subtrahend image
     gray_subtrahend[gray_query == 0] = 0
 
-    # calculate diff
-    diff = cv2.absdiff(gray_subtrahend, gray_query)
-    return diff
+    return cv2.absdiff(gray_subtrahend, gray_query)
 
-def emphasize_lines(img, distances, estimatedRadius):
+def emphasize_lines(img, distances, estimatedRadius, frame_count, circle_lift_span):
     '''
     Emphasize all of the straight lines in the image and get rid of unnecessary noise.
 
@@ -54,30 +52,33 @@ def emphasize_lines(img, distances, estimatedRadius):
     '''
 
     # find the target's outer ring
-    circles = cv2.HoughCircles(img, cv2.HOUGH_GRADIENT, 1, 20,
-                               param1=50, param2=30, minRadius=0,
-                               maxRadius=int(estimatedRadius * 1.05))
+    if (frame_count > circle_lift_span):
+        circles = cv2.HoughCircles(img, cv2.HOUGH_GRADIENT, 1, 20,
+                                param1=50, param2=30, minRadius=0,
+                                maxRadius=int(estimatedRadius * 1.05))
     
-    # use largest detected circle
-    if type(circles) != type(None):
-        outerCircle = sorted(circles[0], key=lambda x: x[2])[::-1][0]
-        radius = outerCircle[2]
+        # use largest detected circle
+        if type(circles) != type(None):
+            outerCircle = sorted(circles[0], key=lambda x: x[2])[::-1][0]
+            radius = outerCircle[2]
+        else:
+            radius = estimatedRadius
         
     # use a rough estimation of the target's radius as a fallback
     else:
         radius = estimatedRadius
+    # radius = estimatedRadius
 
     # zero out all pixels outside of the outer ring
     img[distances[1] > radius] = 0
-    
+        
     # apply thresh and morphology
     _, img = cv2.threshold(img, 20, 0xff, cv2.THRESH_BINARY)
     img = cv2.morphologyEx(img, cv2.MORPH_OPEN, np.ones((3,3), np.uint8))
 
     # find the straight segments in the image
-    lines = cv2.HoughLinesP(img, 2, np.pi / 180, 120, minLineLength=20, maxLineGap=0)
+    lines = cv2.HoughLinesP(img, 1, np.pi / 180, threshold=50, minLineLength=5, maxLineGap=10)
     img_copy = np.zeros(img.shape, dtype=img.dtype)
-
     if type(lines) != type(None):
         for line in lines:
             for x1, y1, x2, y2 in line:

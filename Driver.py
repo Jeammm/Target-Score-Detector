@@ -4,12 +4,12 @@ import cv2
 
 # input
 model = cv2.imread('res/input/target.jpg')
-video_name = 'res/input/video`.mp4'
+video_name = 'res/input/video.mp4'
 bullseye_point = (325,309)
 inner_diameter_px = 50
 inner_diameter_inch = 1.5
 rings_amount = 6
-display_in_cm = False
+display_in_cm = True
 
 # get a sample frame from the video
 cap = cv2.VideoCapture(video_name)

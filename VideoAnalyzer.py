@@ -5,6 +5,11 @@ import HitsManager as hitsMngr
 import Geometry2D as geo2D
 import numpy as np
 import cv2
+import time
+import sys
+
+
+HOMOGRAPHY_LIFE_SPAN = 24
 
 class VideoAnalyzer:
     def __init__(self, videoPath, model, bullseye, ringsAmount, diamPx):
@@ -26,7 +31,7 @@ class VideoAnalyzer:
         self.inner_diam = diamPx
         self.model = model
         self.frame_h, self.frame_w, _ = frameSize
-        self.sift = cv2.xfeatures2d.SIFT_create()
+        self.sift = cv2.SIFT_create()
 
         # calculate anchor points and model features
         self.anchor_points, self.pad_model = geo2D.zero_pad_as(model, frameSize)
@@ -35,6 +40,32 @@ class VideoAnalyzer:
         self.anchor_points.append(bullseye_anchor)
         self.anchor_points = np.float32(self.anchor_points).reshape(-1, 1, 2)
         self.model_keys, self.model_desc = self.sift.detectAndCompute(self.pad_model, None)
+        
+        self.warped_img = None
+        self.bullseye_point = None
+        self.warped_vertices = []
+        self.scale = None
+        self.homography_setup_done = False
+        self.frame_count = 0
+
+    def _setup_homography(self, frame):
+        matches, (train_keys, train_desc) = matcher.ratio_match(self.sift, self.model_desc, frame, .7)
+        if len(matches) >= 4:
+            homography = matcher.calc_homography(self.model_keys, train_keys, matches)
+
+            # check if homography succeeded and start warping the model over the detected object
+            if type(homography) != type(None):
+                warped_transform = cv2.perspectiveTransform(self.anchor_points, homography)
+                self.warped_vertices, warped_edges = geo2D.calc_vertices_and_edges(warped_transform)
+                self.bullseye_point = self.warped_vertices[5]
+
+                # check if homography is good enough to continue
+                if matcher.is_true_homography(self.warped_vertices, warped_edges, (self.frame_w, self.frame_h), .2):
+                    # warp the input image over the filmed object and calculate the scale difference
+                    self.warped_img = cv2.warpPerspective(self.pad_model, homography, (self.frame_w, self.frame_h))
+                    self.scale = geo2D.calc_model_scale(warped_edges, self.model.shape)
+                    self.homography_setup_done = True
+                    self.frame_count = 0
 
     def _analyze_frame(self, frame):
         '''
@@ -63,43 +94,36 @@ class VideoAnalyzer:
         # set default analysis meta-data
         scoreboard = []
         scores = []
-        bullseye_point = None
+        self.bullseye_point = None
+        
+        # while (not self.warped_img or not self.bullseye_point or not self.warped_vertices or not self.scale):
+        
+        while not self.homography_setup_done or self.frame_count > HOMOGRAPHY_LIFE_SPAN:
+        # if True:
+            self._setup_homography(frame)
+        
+        # process image
+        sub_target = visuals.subtract_background(self.warped_img, frame)
+        pixel_distances = geo2D.calc_distances_from(frame.shape, self.warped_vertices[5])
+        estimated_warped_radius = self.rings_amount * self.inner_diam * self.scale[2]
+        
+        
+        circle_radius, emphasized_lines = visuals.emphasize_lines(sub_target, pixel_distances,
+                                                        estimated_warped_radius, self.frame_count, HOMOGRAPHY_LIFE_SPAN)
+        
+        proj_contours = visuals.reproduce_proj_contours(emphasized_lines, pixel_distances,
+                                                       self.warped_vertices[5], circle_radius)
+                
+        suspect_hits = visuals.find_suspect_hits(proj_contours, self.warped_vertices, self.scale)
 
-        # find a match between the model image and the frame
-        matches, (train_keys, train_desc) = matcher.ratio_match(self.sift, self.model_desc, frame, .7)
+        # calculate hits and draw circles around them
+        scoreboard = hitsMngr.create_scoreboard(suspect_hits, self.scale, self.rings_amount, self.inner_diam)
+            
+        self.frame_count += 1
+        sys.stdout.write('\r' + ("*" * self.frame_count) + ("-" * (HOMOGRAPHY_LIFE_SPAN - self.frame_count + 1)))
+        sys.stdout.flush()
 
-        # start calculating homography
-        if len(matches) >= 4:
-            homography = matcher.calc_homography(self.model_keys, train_keys, matches)
-
-            # check if homography succeeded and start warping the model over the detected object
-            if type(homography) != type(None):
-                warped_transform = cv2.perspectiveTransform(self.anchor_points, homography)
-                warped_vertices, warped_edges = geo2D.calc_vertices_and_edges(warped_transform)
-                bullseye_point = warped_vertices[5]
-
-                # check if homography is good enough to continue
-                if matcher.is_true_homography(warped_vertices, warped_edges, (self.frame_w, self.frame_h), .2):
-                    # warp the input image over the filmed object and calculate the scale difference
-                    warped_img = cv2.warpPerspective(self.pad_model, homography, (self.frame_w, self.frame_h))
-                    scale = geo2D.calc_model_scale(warped_edges, self.model.shape)
-                    
-                    # process image
-                    sub_target = visuals.subtract_background(warped_img, frame)
-                    pixel_distances = geo2D.calc_distances_from(frame.shape, warped_vertices[5])
-                    estimated_warped_radius = self.rings_amount * self.inner_diam * scale[2]
-                    circle_radius, emphasized_lines = visuals.emphasize_lines(sub_target, pixel_distances,
-                                                                    estimated_warped_radius)
-                    
-                    proj_contours = visuals.reproduce_proj_contours(emphasized_lines, pixel_distances,
-                                                                    warped_vertices[5], circle_radius)
-                    
-                    suspect_hits = visuals.find_suspect_hits(proj_contours, warped_vertices, scale)
-
-                    # calculate hits and draw circles around them
-                    scoreboard = hitsMngr.create_scoreboard(suspect_hits, scale, self.rings_amount, self.inner_diam)
-
-        return bullseye_point, scoreboard
+        return self.bullseye_point, scoreboard
 
     def analyze(self, outputName, sketcher):
         '''
@@ -124,7 +148,7 @@ class VideoAnalyzer:
                 # increase reputation of consistent hits
                 # or add them as new candidates
                 for hit in scoreboard:
-                    hitsMngr.sort_hit(hit, 30, 15)
+                    hitsMngr.sort_hit(hit, 30, HOMOGRAPHY_LIFE_SPAN * 2)
                 
                 # decrease reputation of inconsistent hits
                 hitsMngr.discharge_hits()
