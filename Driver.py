@@ -1,10 +1,13 @@
 from VideoAnalyzer import VideoAnalyzer
 from Sketcher import Sketcher
 import cv2
+import utils
+from datetime import datetime
 
 # input
 model = cv2.imread('res/input/target.jpg')
-video_name = 'res/input/video.mp4'
+video_name = 'https://jeamujvtudx.stream-playlist.byteark.com/streams/UOAurenzTkiT/playlist.m3u8'
+video_fps = 30
 bullseye_point = (325,309)
 inner_diameter_px = 50
 inner_diameter_inch = 1.5
@@ -24,6 +27,9 @@ measure_unit = pixel_to_cm if display_in_cm else pixel_to_inch
 measure_unit_name = 'cm' if display_in_cm else '"'
 
 # analyze
+start_time = datetime.now()
 sketcher = Sketcher(measure_unit, measure_unit_name)
 video_analyzer = VideoAnalyzer(video_name, model, bullseye_point, rings_amount, inner_diameter_px)
-video_analyzer.analyze('res/output/output.mp4', sketcher)
+score_detail = video_analyzer.analyze('res/output/output.mp4', sketcher)
+print("========== Score Result ===========")
+print([(hit.id, hit.point, hit.score, utils.calculate_time_from_video_frame(start_time, hit.frame_count, video_fps)) for hit in score_detail])

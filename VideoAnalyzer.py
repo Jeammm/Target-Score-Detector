@@ -46,6 +46,7 @@ class VideoAnalyzer:
         self.warped_vertices = []
         self.scale = None
         self.homography_setup_done = False
+        self.frame_life = 0
         self.frame_count = 0
 
     def _setup_homography(self, frame):
@@ -65,7 +66,7 @@ class VideoAnalyzer:
                     self.warped_img = cv2.warpPerspective(self.pad_model, homography, (self.frame_w, self.frame_h))
                     self.scale = geo2D.calc_model_scale(warped_edges, self.model.shape)
                     self.homography_setup_done = True
-                    self.frame_count = 0
+                    self.frame_life = 0
 
     def _analyze_frame(self, frame):
         '''
@@ -98,7 +99,7 @@ class VideoAnalyzer:
         
         # while (not self.warped_img or not self.bullseye_point or not self.warped_vertices or not self.scale):
         
-        while not self.homography_setup_done or self.frame_count > HOMOGRAPHY_LIFE_SPAN:
+        while not self.homography_setup_done or self.frame_life > HOMOGRAPHY_LIFE_SPAN:
         # if True:
             self._setup_homography(frame)
         
@@ -109,7 +110,7 @@ class VideoAnalyzer:
         
         
         circle_radius, emphasized_lines = visuals.emphasize_lines(sub_target, pixel_distances,
-                                                        estimated_warped_radius, self.frame_count, HOMOGRAPHY_LIFE_SPAN)
+                                                        estimated_warped_radius, self.frame_life, HOMOGRAPHY_LIFE_SPAN)
         
         proj_contours = visuals.reproduce_proj_contours(emphasized_lines, pixel_distances,
                                                        self.warped_vertices[5], circle_radius)
@@ -117,10 +118,10 @@ class VideoAnalyzer:
         suspect_hits = visuals.find_suspect_hits(proj_contours, self.warped_vertices, self.scale)
 
         # calculate hits and draw circles around them
-        scoreboard = hitsMngr.create_scoreboard(suspect_hits, self.scale, self.rings_amount, self.inner_diam)
+        scoreboard = hitsMngr.create_scoreboard(suspect_hits, self.scale, self.rings_amount, self.inner_diam, self.frame_count)
             
-        self.frame_count += 1
-        sys.stdout.write('\r' + ("*" * self.frame_count) + ("-" * (HOMOGRAPHY_LIFE_SPAN - self.frame_count + 1)))
+        self.frame_life += 1
+        sys.stdout.write('\r' + ("*" * self.frame_life) + ("-" * (HOMOGRAPHY_LIFE_SPAN - self.frame_life + 1)))
         sys.stdout.flush()
 
         return self.bullseye_point, scoreboard
@@ -141,6 +142,7 @@ class VideoAnalyzer:
 
         while True:
             ret, frame = self.cap.read()
+            self.frame_count += 1
 
             if ret:
                 bullseye, scoreboard = self._analyze_frame(frame)
@@ -202,3 +204,4 @@ class VideoAnalyzer:
         out.release()
         cv2.destroyAllWindows()
         cv2.waitKey(1)
+        return hitsMngr.verified_hits

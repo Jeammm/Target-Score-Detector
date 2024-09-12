@@ -8,7 +8,7 @@ candidate_hits = []
 verified_hits = []
 
 class Hit:
-    def __init__(self, x, y, score, bullseyeRelation):
+    def __init__(self, x, y, score, bullseyeRelation, frame_count):
         '''
         {Number} x - x coordinate of the hit
         {Number} y - y coordinate of the hit
@@ -24,6 +24,7 @@ class Hit:
         self.reputation = 1
         self.bullseye_relation = bullseyeRelation
         self.id = len(verified_hits) + 1
+        self.frame_count = frame_count
         
         # has this hit been checked during current iteration
         self.iter_mark = False
@@ -53,7 +54,7 @@ class Hit:
 
         return self.reputation >= repScore
 
-def create_scoreboard(hits, scale, ringsAmount, innerDiam):
+def create_scoreboard(hits, scale, ringsAmount, innerDiam, frame_count):
     '''
     Calculate the score of each detected hit.
 
@@ -100,7 +101,7 @@ def create_scoreboard(hits, scale, ringsAmount, innerDiam):
         elif score > 10:
             score = 10
         
-        hit_obj = Hit(int(hit[0]), int(hit[1]), score, hit[3])
+        hit_obj = Hit(int(hit[0]), int(hit[1]), score, hit[3], frame_count)
         scoreboard.append(hit_obj)
 
     return scoreboard
@@ -219,7 +220,9 @@ def eliminate_verified_redundancy(distanceTolerance):
                 if bullseye_dist_i < bullseye_dist_j:
                     verified_hits.remove(verified_hits[col])
                 else:
+                    # assign previous id and frame count to the replacing hit
                     verified_hits[col].id = verified_hits[i].id
+                    verified_hits[col].frame_count = verified_hits[i].frame_count
                     verified_hits.remove(verified_hits[i])
         
         j_leap += 1
